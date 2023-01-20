@@ -8,7 +8,8 @@ from torchvision.io import read_image
 IMAGE_SIZE = 224
 
 class MAEDataset(Dataset):
-    def __init__(self, coco_json_path, patch_size=16, intersection_threshold=0.3, resize_image=False):
+    def __init__(self, coco_json_path, image_path,  patch_size=16, intersection_threshold=0.3, resize_image=False):
+        self.image_path = image_path
         self.patch_size = patch_size
         # number of horizontal and vertical columns. in our case it == 14
         self.pixels_in_patch = IMAGE_SIZE // self.patch_size
@@ -17,10 +18,13 @@ class MAEDataset(Dataset):
         
         with open(coco_json_path) as f:
             self.anns = json.load(f)
-            
+
+        # tmp = [(x['file_name'], x['id']) for x in self.anns['images']]
+        # self.indices = [x['id'] for x in self.anns['images']]
+        # print(len(tmp))
 
     def __len__(self):
-        return len(self.imgs)
+        return len(self.anns['images'])
     
     
     def index_to_bbox(self, index):
@@ -50,7 +54,7 @@ class MAEDataset(Dataset):
     
     def bbox_to_index(self, bbox, scale):
         # pixels_in_patch = 224 // patch_size  # number of horizontal and vertical columns. in our case it == 14
-        x_scale, y_scale = scale
+        # x_scale, y_scale = scale
         
         ### scaling bounding box coordinates
         box = bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]
@@ -77,7 +81,7 @@ class MAEDataset(Dataset):
         if max_ >= self.intersection_threshold:
             return int(colors[counts[1:].argmax() + 1])
         
-        print(colors, counts, index, counts[1:] / counts[0])
+        # print(colors, counts, index, counts[1:] / counts[0])
         return int(colors[counts.argmax()])
         
 
@@ -93,13 +97,17 @@ class MAEDataset(Dataset):
 
 
     def __getitem__(self, idx):
-#         img_path = [x['file_name'] for x in self.anns['images'] if x['id'] == idx][0]
-        img_path = '4283__1__0___0.png'
-        image = read_image(img_path)
+        # print('idx: check', idx)
+        imagenet_mean = np.array([0.485, 0.456, 0.406])
+        imagenet_std = np.array([0.229, 0.224, 0.225])
+        img_path, img_id = [(x['file_name'], x['id']) for x in self.anns['images']][idx]
+        # img_path = '4283__1__0___0.png'
+        image = read_image(os.path.join(self.image_path, img_path))
         
-        img_boxes = [x['bbox'] for x in self.anns['annotations'] if x['image_id'] == idx]  # [x1, y1, w, h]
-        img_labels = [x['category_id'] for x in self.anns['annotations'] if x['image_id'] == idx]  # label
-        img_segmentation = [x['segmentation'][0] for x in self.anns['annotations'] if x['image_id'] == idx]
+        
+        img_boxes = [x['bbox'] for x in self.anns['annotations'] if x['image_id'] == img_id]  # [x1, y1, w, h]
+        img_labels = [x['category_id'] for x in self.anns['annotations'] if x['image_id'] == img_id]  # label
+        img_segmentation = [x['segmentation'][0] for x in self.anns['annotations'] if x['image_id'] == img_id]
         
         x_scale = IMAGE_SIZE / image.shape[2]
         y_scale = IMAGE_SIZE / image.shape[1]
@@ -126,17 +134,20 @@ class MAEDataset(Dataset):
         if self.resize_image:
             image = cv2.resize(image.permute(1, 2, 0).detach().numpy(), (IMAGE_SIZE, IMAGE_SIZE),\
                                interpolation=cv2.INTER_CUBIC)
+            image = image / 255.
+            image = image - imagenet_mean
+            image = image / imagenet_std
         else:
             image = image.permute(1, 2, 0).detach().numpy()
         
         target = {}
         target['image'] = image
-        target['black_image'] = black_image
-        target['file_name'] = img_path
-        target['boxes'] = np.array(img_boxes)
-        target['labels'] = np.array(img_labels)
+#         target['black_image'] = black_image
+        # target['file_name'] = img_path
+#         target['boxes'] = np.array(img_boxes)
+        # target['labels'] = np.array(img_labels)
         target['indices_labels'] = index_labels
-        target['image_urls'] = img_urls
+        # target['image_urls'] = img_urls
 
         
         return target
