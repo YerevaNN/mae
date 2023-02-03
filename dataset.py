@@ -142,9 +142,9 @@ class MAEDataset(Dataset):
         
         target = {}
         target['image'] = image
-#         target['black_image'] = black_image
-        # target['file_name'] = img_path
-#         target['boxes'] = np.array(img_boxes)
+        # target['black_image'] = black_image
+        target['file_name'] = img_path
+        # target['boxes'] = np.array(img_boxes)
         # target['labels'] = np.array(img_labels)
         target['indices_labels'] = index_labels
         # target['image_urls'] = img_urls
@@ -154,6 +154,9 @@ class MAEDataset(Dataset):
 
 
 if __name__ == "__main__":
-    dataset = MAEDataset('./annotations/few_shot_8_fair1m.json')
-    p = dataset[1]
-    print(np.unique(p['indices_labels'], return_counts=True))
+    root = '/mnt/2tb/hrant/FAIR1M/fair1m_1000/train1000/'
+    path_ann = os.path.join(root, 'few_shot_8.json')
+    path_imgs = os.path.join(root, 'images')
+    dataset = MAEDataset(path_ann, path_imgs, resize_image=True)
+    p = dataset[3]
+    print(np.unique(p['file_name'], return_counts=True))
