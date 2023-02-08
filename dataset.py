@@ -107,17 +107,17 @@ class MAEDataset(Dataset):
         
         img_boxes = [x['bbox'] for x in self.anns['annotations'] if x['image_id'] == img_id]  # [x1, y1, w, h]
         img_labels = [x['category_id'] for x in self.anns['annotations'] if x['image_id'] == img_id]  # label
-        img_segmentation = [x['segmentation'][0] for x in self.anns['annotations'] if x['image_id'] == img_id]
+        # img_segmentation = [x['segmentation'][0] for x in self.anns['annotations'] if x['image_id'] == img_id]
         
         x_scale = IMAGE_SIZE / image.shape[2]
         y_scale = IMAGE_SIZE / image.shape[1]
         
         black_image = np.zeros((IMAGE_SIZE, IMAGE_SIZE))
             
-        for box, label, seg in zip(img_boxes, img_labels, img_segmentation):
-            seg = self.scale_box(seg, (x_scale, y_scale))
-            pts = np.array([[seg[0], seg[1]], [seg[2], seg[3]], [seg[4], seg[5]], [seg[6], seg[7]]])
-            black_image = cv2.fillPoly(black_image, [pts], (label, 0))
+        for box, label in zip(img_boxes, img_labels):
+            box = self.scale_box(box, (x_scale, y_scale))
+            pts = np.array([[box[0], box[1]], [box[0] + box[2], box[1] + box[3]]])
+            black_image = cv2.rectangle(black_image, pts[0], pts[1], (label, 0), -1)
 
 #         black_image = cv2.resize(black_image, (IMAGE_SIZE, IMAGE_SIZE), interpolation=cv2.INTER_AREA)
 
@@ -142,7 +142,7 @@ class MAEDataset(Dataset):
         
         target = {}
         target['image'] = image
-        # target['black_image'] = black_image
+        target['black_image'] = black_image
         target['file_name'] = img_path
         # target['boxes'] = np.array(img_boxes)
         # target['labels'] = np.array(img_labels)
