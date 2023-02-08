@@ -6,8 +6,9 @@ import pytorch_lightning as pl
 from dataset import MAEDataset
 import models_mae
 
-BATCH_SIZE = 40
+BATCH_SIZE = 24
 EPOCHS = 500
+DEVICE = 'cpu'
 continue_from_checkpoint = False
 
 
@@ -105,8 +106,8 @@ if __name__ == '__main__':
 
     #### init dataset ####
 
-    path_ann = '/home/barseghyan/Projects/GLIP/annotations/nightowls/val/annotations_nightowls_coco.json'
-    path_imgs = '/mnt/2tb/hrant/nightowls/val'
+    path_ann = './annotations/few_shot_8_nightowls.json'
+    path_imgs = '/home/ani/nightowls_stage_3/'
     dataset = MAEDataset(path_ann, path_imgs, intersection_threshold=0.01, resize_image=True)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 
@@ -117,13 +118,13 @@ if __name__ == '__main__':
     if continue_from_checkpoint:
         # chkpt_dir = 'best_model.pth'
         chkpt_dir = '/mnt/2tb/alla/mae/mae_contastive/lightning_logs/version_12/checkpoints/epoch=30-step=31.ckpt'
-        checkpoint = torch.load(chkpt_dir, map_location='cpu')
+        checkpoint = torch.load(chkpt_dir, map_location=DEVICE)
         msg = model_mae.load_state_dict(checkpoint, strict=False)
 
     else:
         # chkpt_dir = '/mnt/2tb/hrant/checkpoints/mae_models/mae_visualize_vit_large.pth'
         chkpt_dir = '/mnt/2tb/hrant/checkpoints/mae_models/mae_visualize_vit_large_ganloss.pth'
-        checkpoint = torch.load(chkpt_dir, map_location='cuda')
+        checkpoint = torch.load(chkpt_dir, map_location=DEVICE)
         msg = model_mae.load_state_dict(checkpoint['model'], strict=False)
         # chkpt_dir = '/mnt/2tb/alla/mae/mae_contastive/custom_cosine_sim/lightning_logs/version_5/checkpoints/epoch=15-step=16.ckpt'
         # model_mae = LightningMAE.load_from_checkpoint(chkpt_dir, model=model_mae)
@@ -132,6 +133,5 @@ if __name__ == '__main__':
 
     model = LightningMAE(model_mae, num_classes=3, lr=0.0001, l1=1)
     trainer = pl.Trainer(logger=True, enable_checkpointing=True, limit_predict_batches=BATCH_SIZE, max_epochs=EPOCHS, log_every_n_steps=1, \
-        default_root_dir="/mnt/2tb/alla/mae/mae_contastive/nightowls", ) #, accelerator='gpu',\
-        #  devices=1, )
+        default_root_dir="/mnt/2tb/alla/mae/mae_contastive/nightowls", accelerator=DEVICE, devices=1, )
     trainer.fit(model=model, train_dataloaders=dataloader)
