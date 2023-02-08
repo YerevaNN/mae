@@ -176,28 +176,31 @@ class MaskedAutoencoderViT(nn.Module):
 
         # mask_tokens = self.mask_token.repeat(x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1)
         # print('encoder, mask tokens shape:', mask_tokens.detach().numpy())
-        # x_ = torch.cat([x[:, 1:, :], mask_tokens], dim=1)  # no cls token
-        # x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))  # unshuffle
-        # x = torch.cat([x[:, :1, :], x_], dim=1)  # append cls token
+        x_ = x[:, 1:, :]  # no cls token
+        x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))  # unshuffle
+        x = torch.cat([x[:, :1, :], x_], dim=1)  # append cls token
         # print('encoder:', x.shape)
         # return x[:,idx], mask, ids_restore
         return x, mask, ids_restore
 
     def forward_decoder(self, x, ids_restore):
         # embed tokens
+        idx = torch.arange(140, 160)
+        x[:, idx] = torch.ones((x.shape[0], idx.shape[0], x.shape[-1])) * 1000
         x = self.decoder_embed(x)
 
         # append mask tokens to sequence
         print("decoder:", x.shape, ids_restore.shape)
-        mask_tokens = self.mask_token.repeat(x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1)
-        print('decoder, mask tokens shape:', mask_tokens.shape)
-        x_ = torch.cat([x[:, 1:, :], mask_tokens], dim=1)  # no cls token
-        x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))  # unshuffle
-        x = torch.cat([x[:, :1, :], x_], dim=1)  # append cls token
-        print('')
+        # mask_tokens = self.mask_token.repeat(x.shape[0], ids_restore.shape[1] + 1 - x.shape[1], 1)
+        # print('decoder, mask tokens shape:', mask_tokens.shape)
+        # x_ = torch.cat([x[:, 1:, :], mask_tokens], dim=1)  # no cls token
+        # x_ = torch.gather(x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2]))  # unshuffle
+        # x = torch.cat([x[:, :1, :], x_], dim=1)  # append cls token
         # add pos embed
         x = x + self.decoder_pos_embed
-
+        print('self.decoder_pos_embed', self.decoder_pos_embed)
+        # idx = torch.arange(140, 160)
+        # x[:, idx] = torch.ones((x.shape[0], idx.shape[0], x.shape[-1])) * 1000
         # apply Transformer blocks
         for blk in self.decoder_blocks:
             x = blk(x)
