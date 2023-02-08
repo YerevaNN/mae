@@ -107,7 +107,7 @@ if __name__ == '__main__':
     root = '/mnt/2tb/hrant/FAIR1M/fair1m_1000/train1000/'
     path_ann = os.path.join(root, 'few_shot_8.json')
     path_imgs = os.path.join(root, 'images')
-    dataset = MAEDataset(path_ann, path_imgs, resize_image=True)
+    dataset = MAEDataset(path_ann, path_imgs, intersection_threshold=0.1, resize_image=True)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 
     #### init model ####
@@ -126,12 +126,12 @@ if __name__ == '__main__':
         checkpoint = torch.load(chkpt_dir, map_location='cuda')
         msg = model_mae.load_state_dict(checkpoint['model'], strict=False)
         chkpt_dir = '/mnt/2tb/alla/mae/mae_contastive/custom_cosine_sim/lightning_logs/version_5/checkpoints/epoch=15-step=16.ckpt'
-        model_mae = LightningMAE.load_from_checkpoint(chkpt_dir, model=model_mae)
-        model_mae = model_mae.model_mae
+        # model_mae = LightningMAE.load_from_checkpoint(chkpt_dir, model=model_mae)
+        # model_mae = model_mae.model_mae
 
 
     model = LightningMAE(model_mae, l1=1)
     trainer = pl.Trainer(logger=True, enable_checkpointing=True, limit_predict_batches=BATCH_SIZE, max_epochs=EPOCHS, log_every_n_steps=1, \
-        default_root_dir="/mnt/2tb/alla/mae/mae_contastive/custom_cosine_sim", ) #, accelerator='gpu',\
+        default_root_dir="/mnt/2tb/alla/mae/mae_contastive/custom_cosine_sim",  ) #, accelerator='gpu',\
         #  devices=1, )
     trainer.fit(model=model, train_dataloaders=dataloader)
