@@ -1,15 +1,22 @@
 import os 
 import torch 
 import torch.nn as nn
-import torchmetrics
 import pytorch_lightning as pl
 
 from dataset import MAEDataset
 import models_mae
 
 BATCH_SIZE = 40
-EPOCHS = 1 # 100
+EPOCHS = 500
 continue_from_checkpoint = False
+
+
+def cosine_distance_torch(x1, x2=None):
+    x2 = x1 if x2 is None else x2
+    w1 = x1.norm(p=2, dim=1, keepdim=True)
+    w2 = w1 if x2 is x1 else x2.norm(p=2, dim=1, keepdim=True)
+    return 1 - torch.mm(x1, x2.t()) / (w1 * w2.t())
+
 
 class ContrastiveLoss(nn.Module):
     def __init__(self, num_classes=5, margin=1.0) -> None:
@@ -19,12 +26,9 @@ class ContrastiveLoss(nn.Module):
 
     def forward(self, img_enc_1, labels, img_enc_2=None):
         if not img_enc_2:
-            cos_dist = 1 - torchmetrics.functional.pairwise_cosine_similarity(img_enc_1)
+            cos_dist = cosine_distance_torch(img_enc_1)
         else:
-            cos_dist = 1 - torchmetrics.functional.pairwise_cosine_similarity(img_enc_1, img_enc_2)
-
-        print(cos_dist.__dir__())
-        print(cos_dist.grad)
+            cos_dist = cosine_distance_torch(img_enc_1, img_enc_2)
 
         # d = 0 means y1 and y2 are supposed to be same
         # d = 1 means y1 and y2 are supposed to be different
@@ -65,8 +69,9 @@ class LightningMAE(pl.LightningModule):
         self.model_mae = model
         self.l1 = l1
         self.lr = lr
+        self.min_loss = 10
         self.criterion = ContrastiveLoss(num_classes=num_classes, margin=margin)
-        # self.save_hyperparameters(ignore=['model'])
+        # self.save_hyperparameters()
 
     def training_step(self, batch, batch_idx):
 
@@ -79,6 +84,10 @@ class LightningMAE(pl.LightningModule):
         total_loss = loss[0] + self.l1 * loss[1]
         self.log('train_loss', total_loss)
         print(f'Iter: {batch_idx}, pos_loss: {loss[0].item()}, neg_loss = {self.l1} * {loss[1].item()}, loss: {total_loss.item()}')
+
+        if self.min_loss > total_loss:
+            self.min_loss = total_loss.item()
+            torch.save(self.model_mae.state_dict(), "/mnt/2tb/alla/mae/mae_contastive/custom_cosine_sim/best_model.pth")
 
         return total_loss
 
@@ -116,10 +125,13 @@ if __name__ == '__main__':
         chkpt_dir = '/mnt/2tb/hrant/checkpoints/mae_models/mae_visualize_vit_large_ganloss.pth'
         checkpoint = torch.load(chkpt_dir, map_location='cuda')
         msg = model_mae.load_state_dict(checkpoint['model'], strict=False)
+        chkpt_dir = '/mnt/2tb/alla/mae/mae_contastive/custom_cosine_sim/lightning_logs/version_5/checkpoints/epoch=15-step=16.ckpt'
+        model_mae = LightningMAE.load_from_checkpoint(chkpt_dir, model=model_mae)
+        model_mae = model_mae.model_mae
 
 
     model = LightningMAE(model_mae, l1=1)
-    trainer = pl.Trainer(limit_predict_batches=BATCH_SIZE, max_epochs=EPOCHS, log_every_n_steps=1,\
-        default_root_dir="/mnt/2tb/alla/mae/mae_contastive/") #, accelerator='gpu',\
+    trainer = pl.Trainer(logger=True, enable_checkpointing=True, limit_predict_batches=BATCH_SIZE, max_epochs=EPOCHS, log_every_n_steps=1, \
+        default_root_dir="/mnt/2tb/alla/mae/mae_contastive/custom_cosine_sim", ) #, accelerator='gpu',\
         #  devices=1, )
     trainer.fit(model=model, train_dataloaders=dataloader)
