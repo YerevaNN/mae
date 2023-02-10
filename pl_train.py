@@ -9,9 +9,12 @@ from aim.pytorch_lightning import AimLogger
 from dataset import MAEDataset
 import models_mae
 
+
 BATCH_SIZE = 20
 EPOCHS = 100
 RANDOM_INIT = True
+EPOCHS = 500
+DEVICE = 'cpu'
 continue_from_checkpoint = False
 DEVICE = 'cpu'
 learning_rate = 1e-4
@@ -127,7 +130,9 @@ class LightningMAE(pl.LightningModule):
 
         if self.min_loss > total_loss:
             self.min_loss = total_loss.item()
+
             torch.save(self.model_mae.state_dict(), "/mnt/2tb/alla/mae/mae_contastive/background_random_init/best_model.pth")
+
 
         return total_loss
 
@@ -144,10 +149,12 @@ class LightningMAE(pl.LightningModule):
 if __name__ == '__main__':
 
     #### init dataset ####
+
     root = '/mnt/2tb/hrant/FAIR1M/fair1m_1000/train1000/'
     path_ann = os.path.join(root, 'few_shot_8.json')
     path_imgs = os.path.join(root, 'images')
     dataset = MAEDataset(path_ann, path_imgs, intersection_threshold=intersection_threshold, resize_image=True)
+
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 
     #### init model ####
@@ -159,9 +166,11 @@ if __name__ == '__main__':
         chkpt_dir = '/mnt/2tb/hrant/checkpoints/mae_models/mae_visualize_vit_large_ganloss.pth'
         checkpoint = torch.load(chkpt_dir, map_location=DEVICE)
         msg = model_mae.load_state_dict(checkpoint['model'], strict=False)
+
         chkpt_dir = '/mnt/2tb/alla/mae/mae_contastive/background/lightning_logs/version_1/checkpoints/epoch=142-step=143.ckpt'
         model_mae = LightningMAE.load_from_checkpoint(chkpt_dir, model=model_mae)
         model_mae = model_mae.model_mae
+
 
     else:
         # chkpt_dir = '/mnt/2tb/hrant/checkpoints/mae_models/mae_visualize_vit_large.pth'
@@ -177,3 +186,4 @@ if __name__ == '__main__':
         default_root_dir="/mnt/2tb/alla/mae/mae_contastive/background_random_init", accelerator=DEVICE,) # devices=1,) # gpus=-1)
     # trainer = pl.Trainer(logger=AimLogger(experiment='experiment_name'), accelerator=DEVICE, devices=1,)
     trainer.fit(model=model, train_dataloaders=dataloader)
+
